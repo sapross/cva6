@@ -22,6 +22,8 @@ if {$::env(BOARD) eq "genesys2"} {
       add_files -fileset constrs_1 -norecurse constraints/kc705.xdc
 } elseif {$::env(BOARD) eq "vc707"} {
       add_files -fileset constrs_1 -norecurse constraints/vc707.xdc
+} elseif {$::env(BOARD) eq "nexys4ddr"} {
+      add_files -fileset constrs_1 -norecurse constraints/nexys4ddr.xdc
 } else {
       exit 1
 }
@@ -35,7 +37,10 @@ read_ip { \
       "xilinx/xlnx_axi_gpio/xlnx_axi_gpio.srcs/sources_1/ip/xlnx_axi_gpio/xlnx_axi_gpio.xci" \
       "xilinx/xlnx_axi_quad_spi/xlnx_axi_quad_spi.srcs/sources_1/ip/xlnx_axi_quad_spi/xlnx_axi_quad_spi.xci" \
       "xilinx/xlnx_clk_gen/xlnx_clk_gen.srcs/sources_1/ip/xlnx_clk_gen/xlnx_clk_gen.xci" \
+      "xilinx/xlnx_clk_gen_nexys4ddr/xlnx_clk_gen_nexys4ddr.srcs/sources_1/ip/xlnx_clk_gen_nexys4ddr/xlnx_clk_gen_nexys4ddr.xci" \
 }
+
+
 # read_ip xilinx/xlnx_protocol_checker/ip/xlnx_protocol_checker.xci
 
 set_property include_dirs { "src/axi_sd_bridge/include" "../../vendor/pulp-platform/common_cells/include" "../../vendor/pulp-platform/axi/include" "../register_interface/include"} [current_fileset]
@@ -55,6 +60,10 @@ if {$::env(BOARD) eq "genesys2"} {
 } elseif {$::env(BOARD) eq "vc707"} {
       read_verilog -sv {src/vc707.svh ../../vendor/pulp-platform/common_cells/include/common_cells/registers.svh}
       set file "src/vc707.svh"
+      set registers "../../vendor/pulp-platform/common_cells/include/common_cells/registers.svh"
+} elseif {$::env(BOARD) eq "nexys4ddr"} {
+      read_verilog -sv {src/nexys4ddr.svh ../../vendor/pulp-platform/common_cells/include/common_cells/registers.svh}
+      set file "src/nexys4ddr.svh"
       set registers "../../vendor/pulp-platform/common_cells/include/common_cells/registers.svh"
 } else {
     exit 1

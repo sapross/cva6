@@ -137,6 +137,37 @@ module ariane_xilinx (
   input  wire [7:0]    pci_exp_rxp     ,
   input  wire [7:0]    pci_exp_rxn     ,
   input  logic         trst_n          ,
+`elsif NEXYS4DDR
+  input  logic         sys_clk_p   ,
+  input  logic         cpu_resetn  ,
+  inout  wire  [15:0]  ddr2_dq     ,
+  inout  wire  [ 1:0]  ddr2_dqs_n  ,
+  inout  wire  [ 1:0]  ddr2_dqs_p  ,
+  output logic [12:0]  ddr2_addr   ,
+  output logic [ 2:0]  ddr2_ba     ,
+  output logic         ddr2_ras_n  ,
+  output logic         ddr2_cas_n  ,
+  output logic         ddr2_we_n   ,
+  output logic [ 0:0]  ddr2_ck_p   ,
+  output logic [ 0:0]  ddr2_ck_n   ,
+  output logic [ 0:0]  ddr2_cke    ,
+  output logic [ 0:0]  ddr2_cs_n   ,
+  output logic [ 1:0]  ddr2_dm     ,
+  output logic [ 0:0]  ddr2_odt    ,
+  input  logic         rx_debug    ,
+  output logic         tx_debug    ,
+  output logic [ 15:0] led         ,
+  input  logic [ 15:0] sw          ,
+  // Dummy ethernet ports
+  output wire          eth_rst_n   ,
+  input  wire          eth_rxck    ,
+  input  wire          eth_rxctl   ,
+  input  wire [3:0]    eth_rxd     ,
+  output wire          eth_txck    ,
+  output wire          eth_txctl   ,
+  output wire [3:0]    eth_txd     ,
+  inout  wire          eth_mdio    ,
+  output logic         eth_mdc     ,
 `endif
   // SPI
   output logic        spi_mosi    ,
@@ -221,6 +252,9 @@ assign cpu_resetn = ~cpu_reset;
 `elsif VC707
 assign cpu_resetn = ~cpu_reset;
 assign trst_n = ~trst;
+`elsif NEXYS4DDR
+logic cpu_reset;
+assign cpu_reset  = ~cpu_resetn;
 `endif
 
 logic pll_locked;
@@ -413,8 +447,8 @@ if (riscv::XLEN==32 ) begin
 
     assign master[ariane_soc::Debug].r_user ='0;
     assign master[ariane_soc::Debug].b_user ='0;
- 
-    xlnx_axi_dwidth_converter_dm_slave  i_axi_dwidth_converter_dm_slave( 
+
+    xlnx_axi_dwidth_converter_dm_slave  i_axi_dwidth_converter_dm_slave(
         .s_axi_aclk(clk),
         .s_axi_aresetn(ndmreset_n),
         .s_axi_awid(master[ariane_soc::Debug].aw_id),
@@ -550,7 +584,7 @@ end else begin
 
     assign master[ariane_soc::Debug].r_ready = master_to_dm[0].r_ready;
 
-end 
+end
 
 
 
@@ -596,7 +630,7 @@ if (riscv::XLEN==32 ) begin
 
     logic [31 : 0] dm_master_s_rdata;
 
-    assign dm_axi_m_resp.r.data = {32'h0000_0000, dm_master_s_rdata}; 
+    assign dm_axi_m_resp.r.data = {32'h0000_0000, dm_master_s_rdata};
 
     assign slave[1].aw_user = '0;
     assign slave[1].w_user = '0;
@@ -606,7 +640,7 @@ if (riscv::XLEN==32 ) begin
     assign slave[1].ar_id = dm_axi_m_req.ar.id;
     assign slave[1].aw_atop = dm_axi_m_req.aw.atop;
 
-    xlnx_axi_dwidth_converter_dm_master  i_axi_dwidth_converter_dm_master( 
+    xlnx_axi_dwidth_converter_dm_master  i_axi_dwidth_converter_dm_master(
         .s_axi_aclk(clk),
         .s_axi_aresetn(ndmreset_n),
         .s_axi_awid(dm_axi_m_req.aw.id),
@@ -777,7 +811,7 @@ if (riscv::XLEN==32 ) begin
         .addr_i  ( rom_addr  ),
         .rdata_o ( rom_rdata )
     );
-end else begin 
+end else begin
     bootrom_64 i_bootrom (
         .clk_i   ( clk       ),
         .req_i   ( rom_req   ),
@@ -813,6 +847,9 @@ ariane_peripherals #(
     `elsif VCU118
     .InclSPI      ( 1'b0         ),
     .InclEthernet ( 1'b0         )
+    `elsif NEXYS4DDR
+    .InclSPI      ( 1'b0         ),
+    .InclEthernet ( 1'b0         )
     `endif
 ) i_ariane_peripherals (
     .clk_i        ( clk                          ),
@@ -846,6 +883,9 @@ ariane_peripherals #(
     `ifdef KC705
       .leds_o         ( {led[3:0], unused_led[7:4]}),
       .dip_switches_i ( {sw, unused_switches}     )
+    `elsif NEXYS4DDR
+      .leds_o         ( led[15:8]                 ),
+      .dip_switches_i ( sw[15:8]                  )
     `else
       .leds_o         ( led                       ),
       .dip_switches_i ( sw                        )
@@ -1064,6 +1104,17 @@ xlnx_axi_clock_converter i_xlnx_axi_clock_converter_ddr (
   .m_axi_rready   ( s_axi_rready     )
 );
 
+`ifdef NEXYS4DDR
+xlnx_clk_gen_nexys4ddr i_xlnx_clk_gen (
+  .clk_out1 ( clk           ), // 150.015 MHz
+  .clk_out2 ( phy_tx_clk    ), // 125 MHz (for RGMII PHY)
+  .clk_out3 ( eth_clk       ), // 125 MHz quadrature (90 deg phase shift)
+  .clk_out4 ( sd_clk_sys    ), // 50 MHz clock
+  .reset    ( cpu_reset     ),
+  .locked   ( pll_locked    ),
+  .clk_in1  ( ddr_clock_out )
+);
+`else
 xlnx_clk_gen i_xlnx_clk_gen (
   .clk_out1 ( clk           ), // 50 MHz
   .clk_out2 ( phy_tx_clk    ), // 125 MHz (for RGMII PHY)
@@ -1073,6 +1124,7 @@ xlnx_clk_gen i_xlnx_clk_gen (
   .locked   ( pll_locked    ),
   .clk_in1  ( ddr_clock_out )
 );
+`endif
 
 `ifdef KINTEX7
 fan_ctrl i_fan_ctrl (
@@ -1226,6 +1278,74 @@ xlnx_mig_7_ddr3 i_ddr (
     .s_axi_rvalid,
     .init_calib_complete (            ), // keep open
     .device_temp         (            ), // keep open
+    .sys_rst             ( cpu_resetn )
+);
+`elsif NEXYS4DDR
+
+xlnx_mig_7_ddr3 i_ddr (
+    .sys_clk_i(sys_clk_p),
+    .ddr2_dq,
+    .ddr2_dqs_n,
+    .ddr2_dqs_p,
+    .ddr2_addr,
+    .ddr2_ba,
+    .ddr2_ras_n,
+    .ddr2_cas_n,
+    .ddr2_we_n,
+    .ddr2_ck_p,
+    .ddr2_ck_n,
+    .ddr2_cke,
+    .ddr2_cs_n,
+    .ddr2_dm,
+    .ddr2_odt,
+    .mmcm_locked     (                ), // keep open
+    .app_sr_req      ( '0             ),
+    .app_ref_req     ( '0             ),
+    .app_zq_req      ( '0             ),
+    .app_sr_active   (                ), // keep open
+    .app_ref_ack     (                ), // keep open
+    .app_zq_ack      (                ), // keep open
+    .ui_clk          ( ddr_clock_out  ),
+    .ui_clk_sync_rst ( ddr_sync_reset ),
+    .aresetn         ( ndmreset_n     ),
+    .s_axi_awid,
+    .s_axi_awaddr    ( s_axi_awaddr[26:0] ),
+    .s_axi_awlen,
+    .s_axi_awsize,
+    .s_axi_awburst,
+    .s_axi_awlock,
+    .s_axi_awcache,
+    .s_axi_awprot,
+    .s_axi_awqos,
+    .s_axi_awvalid,
+    .s_axi_awready,
+    .s_axi_wdata,
+    .s_axi_wstrb,
+    .s_axi_wlast,
+    .s_axi_wvalid,
+    .s_axi_wready,
+    .s_axi_bready,
+    .s_axi_bid,
+    .s_axi_bresp,
+    .s_axi_bvalid,
+    .s_axi_arid,
+    .s_axi_araddr     ( s_axi_araddr[26:0] ),
+    .s_axi_arlen,
+    .s_axi_arsize,
+    .s_axi_arburst,
+    .s_axi_arlock,
+    .s_axi_arcache,
+    .s_axi_arprot,
+    .s_axi_arqos,
+    .s_axi_arvalid,
+    .s_axi_arready,
+    .s_axi_rready,
+    .s_axi_rid,
+    .s_axi_rdata,
+    .s_axi_rresp,
+    .s_axi_rlast,
+    .s_axi_rvalid,
+    .init_calib_complete (            ), // keep open
     .sys_rst             ( cpu_resetn )
 );
 `elsif VCU118

@@ -11,6 +11,8 @@
 // Description: Xilinx FPGA top-level
 // Author: Florian Zaruba <zarubaf@iis.ee.ethz.ch>
 
+`include "axi/typedef.svh" 
+
 module ariane_xilinx (
 `ifdef GENESYSII
   input  logic         sys_clk_p   ,
@@ -158,17 +160,8 @@ module ariane_xilinx (
   output logic         tx_debug    ,
   output logic [ 15:0] led         ,
   input  logic [ 15:0] sw          ,
-  // Dummy ethernet ports
-  output wire          eth_rst_n   ,
-  input  wire          eth_rxck    ,
-  input  wire          eth_rxctl   ,
-  input  wire [3:0]    eth_rxd     ,
-  output wire          eth_txck    ,
-  output wire          eth_txctl   ,
-  output wire [3:0]    eth_txd     ,
-  inout  wire          eth_mdio    ,
-  output logic         eth_mdc     ,
 `endif
+`ifndef NEXYS4DDR
   // SPI
   output logic        spi_mosi    ,
   input  logic        spi_miso    ,
@@ -180,9 +173,35 @@ module ariane_xilinx (
   input  logic        tms         ,
   input  logic        tdi         ,
   output wire         tdo         ,
+`endif
   input  logic        rx          ,
   output logic        tx
 );
+
+`ifdef NEXYS4DDR
+  logic               eth_rst_n   ;
+  logic               eth_rxck    ;
+  logic               eth_rxctl   ;
+  logic [3:0]         eth_rxd     ;
+  logic               eth_txck    ;
+  logic               eth_txctl   ;
+  logic [3:0]         eth_txd     ;
+  logic               eth_mdio    ;
+  logic               eth_mdc     ;
+  // SPI
+  logic               spi_mosi    ;
+  logic               spi_miso    ;
+  logic               spi_ss      ;
+  logic               spi_clk_o   ;
+  // common part
+  //  logic      trst_n      ;
+  logic               tck         ;
+  logic               tms         ;
+  logic               tdi         ;
+  logic               tdo         ;
+
+`endif
+
 // 24 MByte in 8 byte words
 localparam NumWords = (24 * 1024 * 1024) / 8;
 localparam NBSlave = 2; // debug, ariane
@@ -828,6 +847,10 @@ end
   logic [3:0] unused_switches = 4'b0000;
 `endif
 
+`ifdef NEXYS4DDR
+  logic       clk_200MHz;
+`endif
+
 ariane_peripherals #(
     .AxiAddrWidth ( AxiAddrWidth     ),
     .AxiDataWidth ( AxiDataWidth     ),
@@ -850,10 +873,17 @@ ariane_peripherals #(
     `elsif NEXYS4DDR
     .InclSPI      ( 1'b0         ),
     .InclEthernet ( 1'b0         )
+    `else 
+    .InclSPI      ( 1'b0         ),
+    .InclEthernet ( 1'b0         )
     `endif
 ) i_ariane_peripherals (
     .clk_i        ( clk                          ),
+    `ifdef NEXYS4DDR
+    .clk_200MHz_i ( clk_200MHz                   ),
+    `else
     .clk_200MHz_i ( ddr_clock_out                ),
+    `endif
     .rst_ni       ( ndmreset_n                   ),
     .plic         ( master[ariane_soc::PLIC]     ),
     .uart         ( master[ariane_soc::UART]     ),
@@ -1104,17 +1134,8 @@ xlnx_axi_clock_converter i_xlnx_axi_clock_converter_ddr (
   .m_axi_rready   ( s_axi_rready     )
 );
 
-`ifdef NEXYS4DDR
-xlnx_clk_gen_nexys4ddr i_xlnx_clk_gen (
-  .clk_out1 ( clk           ), // 150.015 MHz
-  .clk_out2 ( phy_tx_clk    ), // 125 MHz (for RGMII PHY)
-  .clk_out3 ( eth_clk       ), // 125 MHz quadrature (90 deg phase shift)
-  .clk_out4 ( sd_clk_sys    ), // 50 MHz clock
-  .reset    ( cpu_reset     ),
-  .locked   ( pll_locked    ),
-  .clk_in1  ( ddr_clock_out )
-);
-`else
+
+
 xlnx_clk_gen i_xlnx_clk_gen (
   .clk_out1 ( clk           ), // 50 MHz
   .clk_out2 ( phy_tx_clk    ), // 125 MHz (for RGMII PHY)
@@ -1122,9 +1143,13 @@ xlnx_clk_gen i_xlnx_clk_gen (
   .clk_out4 ( sd_clk_sys    ), // 50 MHz clock
   .reset    ( cpu_reset     ),
   .locked   ( pll_locked    ),
+`ifdef NEXYS4DDR
+  .clk_in1  ( clk_200MHz    )
+`else
   .clk_in1  ( ddr_clock_out )
-);
 `endif
+);
+
 
 `ifdef KINTEX7
 fan_ctrl i_fan_ctrl (
@@ -1282,8 +1307,16 @@ xlnx_mig_7_ddr3 i_ddr (
 );
 `elsif NEXYS4DDR
 
+  xlnx_clk_gen_200mhz i_xlnx_clk_gen_200mhz
+    (
+     .clk_in1  ( sys_clk_p         ), // 100.000 MHz
+     .reset    ( cpu_reset         ),
+     .locked   (                   ),
+     .clk_out1 ( clk_200MHz        )  // 200.000 MHz
+     );
+
 xlnx_mig_7_ddr3 i_ddr (
-    .sys_clk_i(sys_clk_p),
+    .sys_clk_i(clk_200MHz),
     .ddr2_dq,
     .ddr2_dqs_n,
     .ddr2_dqs_p,

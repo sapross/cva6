@@ -12,7 +12,7 @@ ips := xlnx_axi_clock_converter.xci  \
        xlnx_axi_quad_spi.xci         \
        xlnx_axi_gpio.xci             \
        xlnx_clk_gen.xci              \
-	   $(if ($(BOARD)=="nexys4ddr"), xlnx_clk_gen_nexys4ddr.xci) \
+	   $(if ($(BOARD)=="nexys4ddr"), xlnx_clk_gen_200mhz.xci) \
        xlnx_mig_7_ddr3.xci
 
 ips := $(addprefix $(work-dir)/, $(ips))

@@ -216,8 +216,8 @@ set_property -dict { PACKAGE_PIN G1    IOSTANDARD LVCMOS33 } [get_ports { tx }];
 
 ##USB-RS232 Interface
 
-#set_property -dict { PACKAGE_PIN C4    IOSTANDARD LVCMOS33 } [get_ports { RXD_DEBUG }]; #IO_L7P_T1_AD6P_35 Sch=uart_txd_in
-#set_property -dict { PACKAGE_PIN D4    IOSTANDARD LVCMOS33 } [get_ports { TXD_DEBUG }]; #IO_L11N_T1_SRCC_35 Sch=uart_rxd_out
+set_property -dict { PACKAGE_PIN C4    IOSTANDARD LVCMOS33 } [get_ports { rx_debug }]; #IO_L7P_T1_AD6P_35 Sch=uart_txd_in
+set_property -dict { PACKAGE_PIN D4    IOSTANDARD LVCMOS33 } [get_ports { tx_debug }]; #IO_L11N_T1_SRCC_35 Sch=uart_rxd_out
 #set_property -dict { PACKAGE_PIN D3    IOSTANDARD LVCMOS33 } [get_ports { UART_CTS }]; #IO_L12N_T1_MRCC_35 Sch=uart_cts
 #set_property -dict { PACKAGE_PIN E5    IOSTANDARD LVCMOS33 } [get_ports { UART_RTS }]; #IO_L5N_T0_AD13N_35 Sch=uart_rts
 
@@ -247,7 +247,7 @@ set_property -dict { PACKAGE_PIN G1    IOSTANDARD LVCMOS33 } [get_ports { tx }];
 
 
 ##Quad SPI Flash
-## ***TODO*** CVA6 peripherals don't support QSPI. Also use of sclk requires STARTUP2 primitive.
+## ***TODO*** CVA6 peripherals use standard SPI. Also use of sclk requires STARTUP2 primitive.
 #set_property -dict { PACKAGE_PIN K17   IOSTANDARD LVCMOS33 } [get_ports { qspi_dq[0] }]; #IO_L1P_T0_D00_MOSI_14 Sch=qspi_dq[0]
 #set_property -dict { PACKAGE_PIN K18   IOSTANDARD LVCMOS33 } [get_ports { qspi_dq[1] }]; #IO_L1N_T0_D01_DIN_14 Sch=qspi_dq[1]
 #set_property -dict { PACKAGE_PIN L14   IOSTANDARD LVCMOS33 } [get_ports { qspi_dq[2] }]; #IO_L2P_T0_D02_14 Sch=qspi_dq[2]

@@ -75,7 +75,7 @@ else ifeq ($(BOARD), vc707)
 else ifeq ($(BOARD), nexys4ddr)
 	XILINX_PART              := xc7a100tcsg324-1
 	XILINX_BOARD             := digilentinc.com:nexys4_ddr:part0:1.1
-	CLK_PERIOD_NS            := 20
+	CLK_PERIOD_NS            := 40
 else
 $(error Unknown board - please specify a supported FPGA board)
 endif
@@ -103,6 +103,11 @@ ariane_pkg := \
               corev_apu/tb/ariane_soc_pkg.sv                         \
               corev_apu/riscv-dbg/src/dm_pkg.sv                      \
               corev_apu/tb/ariane_axi_soc_pkg.sv
+
+ifeq ($(BOARD), nexys4ddr)
+	ariane_pkg += corev_apu/riscv-dbg/src/uart/uart_pkg.sv
+endif
+
 ariane_pkg := $(addprefix $(root-dir), $(ariane_pkg))
 
 # Test packages
@@ -200,6 +205,20 @@ src :=  corev_apu/tb/axi_adapter.sv                                             
         corev_apu/tb/common/uart.sv                                                  \
         corev_apu/tb/common/SimDTM.sv                                                \
         corev_apu/tb/common/SimJTAG.sv
+
+ifeq ($(BOARD), nexys4ddr)
+	src += corev_apu/riscv-dbg/src/uart/interface/uart_rx.sv      \
+           corev_apu/riscv-dbg/src/uart/interface/uart_tx.sv      \
+           corev_apu/riscv-dbg/src/uart/interface/fifo.sv         \
+           corev_apu/riscv-dbg/src/uart/interface/uart.sv         \
+           corev_apu/riscv-dbg/src/uart/interface/rx_escape.sv    \
+           corev_apu/riscv-dbg/src/uart/interface/tx_escape.sv    \
+		   corev_apu/riscv-dbg/src/uart/dmi_uart_tap.sv           \
+		   corev_apu/riscv-dbg/src/uart/tap_read_interconnect.sv  \
+		   corev_apu/riscv-dbg/src/uart/tap_write_interconnect.sv \
+		   corev_apu/riscv-dbg/src/uart/dmi_uart.sv               \
+		   corev_apu/riscv-dbg/src/uart/dtm_uart.sv
+endif
 
 # SV32 MMU for CV32, SV39 MMU for CV64
 ifeq ($(findstring 32, $(target)),32)

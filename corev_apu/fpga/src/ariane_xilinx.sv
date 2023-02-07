@@ -210,6 +210,12 @@ localparam AxiDataWidth = 64;
 localparam AxiIdWidthMaster = 4;
 localparam AxiIdWidthSlaves = AxiIdWidthMaster + $clog2(NBSlave); // 5
 localparam AxiUserWidth = ariane_pkg::AXI_USER_WIDTH;
+`ifndef NEXYS4DDR
+  localparam CLK_RATE = 50*10**6;
+`else
+  localparam CLK_RATE = 25*10**6;
+  localparam BAUD_RATE = 3*10**6;
+`endif
 
 `AXI_TYPEDEF_ALL(axi_slave,
                  logic [    AxiAddrWidth-1:0],
@@ -362,6 +368,7 @@ axi_xbar_intf #(
 // ---------------
 // Debug Module
 // ---------------
+`ifndef NEXYS4DDR
 dmi_jtag i_dmi_jtag (
     .clk_i                ( clk                  ),
     .rst_ni               ( rst_n                ),
@@ -380,6 +387,67 @@ dmi_jtag i_dmi_jtag (
     .td_o                 ( tdo    ),
     .tdo_oe_o             (        )
 );
+`else
+   DTM_UART
+     #(
+       .ESC               (uart_pkg::ESC),
+       .CLK_RATE          (CLK_RATE),
+       .BAUD_RATE         (BAUD_RATE),
+       .STB_CONTROL_WIDTH (8),
+       .STB_STATUS_WIDTH  (8),
+       .STB_DATA_WIDTH    (32)
+       )
+   i_uart_dtm
+     (
+      .CLK_I (clk),
+      .RST_NI(rst_n),
+      .RX0_I (rx_debug),
+      .RX1_O ( ),
+      .TX0_O (tx_debug),
+      .TX1_I (1'b1),
+
+      .DMI_REQ_READY_I  ( debug_req_ready  ),
+      .DMI_REQ_VALID_O  ( debug_req_valid  ),
+      .DMI_REQ_O        ( debug_req        ),
+      .DMI_RESP_READY_O ( debug_resp_ready ),
+      .DMI_RESP_VALID_I ( debug_resp_valid ),
+      .DMI_RESP_I       ( debug_resp       ),
+
+      .STB0_STATUS_READY_O    (      ),
+      .STB0_STATUS_VALID_I    ( 1'b0 ),
+      .STB0_STATUS_I          ( 1'b0 ),
+      .STB0_CONTROL_READY_I   ( 1'b0 ),
+      .STB0_CONTROL_VALID_O   (      ),
+      .STB0_CONTROL_O         (      ),
+
+      .STB0_DATA_READY_O      (      ),
+      .STB0_DATA_VALID_I      ( 1'b0 ),
+      .STB0_DATA_I            ( 1'b0 ),
+      .STB0_DATA_READY_I      (      ),
+      .STB0_DATA_VALID_O      (      ),
+      .STB0_DATA_O            (      ),
+
+      .STB1_STATUS_READY_O    (      ),
+      .STB1_STATUS_VALID_I    ( 1'b0 ),
+      .STB1_STATUS_I          ( 1'b0 ),
+      .STB1_CONTROL_READY_I   ( 1'b0 ),
+      .STB1_CONTROL_VALID_O   (      ),
+      .STB1_CONTROL_O         (      ),
+
+      .STB1_DATA_READY_O      (      ),
+      .STB1_DATA_VALID_I      ( 1'b0 ),
+      .STB1_DATA_I            ( 1'b0 ),
+      .STB1_DATA_READY_I      (      ),
+      .STB1_DATA_VALID_O      (      ),
+      .STB1_DATA_O            (      )
+      );
+  assign led[0] = ndmreset;
+  assign led[1] = ndmreset_n;
+  assign led[2] = rst;
+  assign led[3] = rst_n;
+
+`endif
+
 
 ariane_axi::req_t    dm_axi_m_req;
 ariane_axi::resp_t   dm_axi_m_resp;
@@ -437,6 +505,11 @@ dm_top #(
     .dmi_resp_ready_i ( debug_resp_ready  ),
     .dmi_resp_o       ( debug_resp        )
 );
+`ifdef NEXYS4DDR
+  assign led[5] = dmactive;
+  assign led[6] = debug_req_valid;
+  assign led[7] = debug_resp_ready;
+`endif
 
 axi2mem #(
     .AXI_ID_WIDTH   ( AxiIdWidthSlaves    ),

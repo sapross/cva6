@@ -39,6 +39,7 @@
 #include <fesvr/htif_hexwriter.h>
 #include <fesvr/elfloader.h>
 #include "remote_bitbang.h"
+#include "serial_console.hpp"
 
 // This software is heavily based on Rocket Chip
 // Checkout this awesome project:
@@ -49,11 +50,12 @@
 // allow modulus.  You can also use a double, if you wish.
 static vluint64_t main_time = 0;
 
-static const char *verilog_plusargs[] = {"jtag_rbb_enable", "time_out", "debug_disable"};
+static const char *verilog_plusargs[] = {"jtag_rbb_enable","uart_enable", "time_out", "debug_disable"};
 
 #ifndef DROMAJO
 extern dtm_t* dtm;
 extern remote_bitbang_t * jtag;
+extern serial_console_t * uart;
 
 void handle_sigterm(int sig) {
   dtm->stop();
@@ -292,6 +294,7 @@ done_processing:
 
 #ifndef DROMAJO
   jtag = new remote_bitbang_t(rbb_port);
+  uart = new serial_console_t();
   dtm = new preload_aware_dtm_t(htif_argc, htif_argv);
   signal(SIGTERM, handle_sigterm);
 #endif
@@ -398,6 +401,7 @@ done_processing:
 
   if (dtm) delete dtm;
   if (jtag) delete jtag;
+  if (uart) delete uart;
 #endif
 
   std::clock_t c_end = std::clock();

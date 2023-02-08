@@ -44,8 +44,9 @@ module ariane_testharness #(
   logic        debug_req_core;
 
   int          jtag_enable;
+  int          uart_enable;
   logic        init_done;
-  logic [31:0] jtag_exit, dmi_exit;
+  logic [31:0] uart_exit, jtag_exit, dmi_exit;
 
   logic        jtag_TCK;
   logic        jtag_TMS;
@@ -53,6 +54,9 @@ module ariane_testharness #(
   logic        jtag_TRSTn;
   logic        jtag_TDO_data;
   logic        jtag_TDO_driven;
+
+  logic        uart_tx;
+  logic        uart_rx;
 
   logic        debug_req_valid;
   logic        debug_req_ready;
@@ -66,11 +70,19 @@ module ariane_testharness #(
   logic        jtag_resp_ready;
   logic        jtag_resp_valid;
 
+  logic        uart_req_valid;
+  logic [6:0]  uart_req_bits_addr;
+  logic [1:0]  uart_req_bits_op;
+  logic [31:0] uart_req_bits_data;
+  logic        uart_resp_ready;
+  logic        uart_resp_valid;
+
   logic        dmi_req_valid;
   logic        dmi_resp_ready;
   logic        dmi_resp_valid;
 
   dm::dmi_req_t  jtag_dmi_req;
+  dm::dmi_req_t  uart_dmi_req;
   dm::dmi_req_t  dmi_req;
 
   dm::dmi_req_t  debug_req;
@@ -108,11 +120,43 @@ module ariane_testharness #(
   logic debug_enable;
   initial begin
     if (!$value$plusargs("jtag_rbb_enable=%b", jtag_enable)) jtag_enable = 'h0;
+    if (!$value$plusargs("uart_enable=%b", uart_enable)) uart_enable = 'h0;
     if ($test$plusargs("debug_disable")) debug_enable = 'h0; else debug_enable = 'h1;
     if (riscv::XLEN != 32 & riscv::XLEN != 64) $error("XLEN different from 32 and 64");
   end
 
   // debug if MUX
+always_comb begin
+  if(jtag_enable[0]) begin
+    debug_req_valid     = jtag_req_valid;
+    debug_resp_ready    = jtag_resp_ready;
+    debug_req           = jtag_dmi_req;
+    exit_o              = jtag_exit;
+    jtag_resp_valid     = debug_resp_valid;
+    uart_resp_valid     = 1'b0;
+    dmi_resp_valid      = 1'b0;
+  end
+  else if(uart_enable[0]) begin
+    debug_req_valid     = uart_req_valid;
+    debug_resp_ready    = uart_resp_ready;
+    debug_req           = uart_dmi_req;
+    exit_o              = uart_exit;
+    uart_resp_valid     = debug_resp_valid;
+    jtag_resp_valid     = 1'b0;
+    dmi_resp_valid      = 1'b0;
+  end
+  else begin
+    debug_req_valid     = dmi_req_valid;
+    debug_resp_ready    = dmi_resp_ready;
+    debug_req           = dmi_req;
+    exit_o              = dmi_exit;
+    jtag_resp_valid     = 1'b0;
+    uart_resp_valid     = 1'b0;
+    dmi_resp_valid      = debug_resp_valid;
+  end
+end
+
+
   assign debug_req_valid     = (jtag_enable[0]) ? jtag_req_valid     : dmi_req_valid;
   assign debug_resp_ready    = (jtag_enable[0]) ? jtag_resp_ready    : dmi_resp_ready;
   assign debug_req           = (jtag_enable[0]) ? jtag_dmi_req       : dmi_req;
@@ -154,6 +198,71 @@ module ariane_testharness #(
     .td_o             ( jtag_TDO_data   ),
     .tdo_oe_o         ( jtag_TDO_driven )
   );
+
+  SimUART i_SimUART (
+                     .clock                ( clk_i                ),
+                     .reset                ( 0                    ),
+                     .enable               ( 1                    ),
+                     .init_done            ( 1                    ),
+                     .uart_rx              ( uart_rx              ),
+                     .uart_tx              ( uart_tx              ),
+                     .uart_tx_driven       ( 1                    ),
+                     .exit                 ( uart_exit            )
+                     );
+
+   DTM_UART
+     #(
+       .ESC(uart_pkg::ESC),
+       .CLK_RATE(50*10*6),
+       .BAUD_RATE(3*10*6),
+       .STB_CONTROL_WIDTH(8),
+       .STB_STATUS_WIDTH(8),
+       .STB_DATA_WIDTH(32)
+       )
+   i_uart_dtm
+     (
+      .CLK_I(clk_i),
+      .RST_NI(rst_ni),
+      .RX0_I(uart_rx),
+      .RX1_O( ),
+      .TX0_O(uart_tx),
+      .TX1_I(1'b1),
+
+      .DMI_REQ_O        ( uart_dmi_req    ),
+      .DMI_REQ_VALID_O  ( uart_req_valid  ),
+      .DMI_REQ_READY_I  ( debug_req_ready ),
+      .DMI_RESP_I       ( debug_resp      ),
+      .DMI_RESP_READY_O ( uart_resp_ready ),
+      .DMI_RESP_VALID_I ( uart_resp_valid ),
+
+      .STB0_STATUS_READY_O    (  ),
+      .STB0_STATUS_VALID_I    ( 1'b0 ),
+      .STB0_STATUS_I          ( 1'b0 ),
+      .STB0_CONTROL_READY_I   ( 1'b0 ),
+      .STB0_CONTROL_VALID_O   (  ),
+      .STB0_CONTROL_O         (  ),
+
+      .STB0_DATA_READY_O      (      ),
+      .STB0_DATA_VALID_I      ( 1'b0 ),
+      .STB0_DATA_I            ( 1'b0 ),
+      .STB0_DATA_READY_I      (      ),
+      .STB0_DATA_VALID_O      (      ),
+      .STB0_DATA_O            (      ),
+
+      .STB1_STATUS_READY_O    (  ),
+      .STB1_STATUS_VALID_I    ( 1'b0 ),
+      .STB1_STATUS_I          ( 1'b0 ),
+      .STB1_CONTROL_READY_I   ( 1'b0 ),
+      .STB1_CONTROL_VALID_O   (  ),
+      .STB1_CONTROL_O         (  ),
+
+      .STB1_DATA_READY_O      (      ),
+      .STB1_DATA_VALID_I      ( 1'b0 ),
+      .STB1_DATA_I            ( 1'b0 ),
+      .STB1_DATA_READY_I      (      ),
+      .STB1_DATA_VALID_O      (      ),
+      .STB1_DATA_O            (      )
+      );
 
   // SiFive's SimDTM Module
   // Converts to DPI calls

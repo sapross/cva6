@@ -104,9 +104,9 @@ ariane_pkg := \
               corev_apu/riscv-dbg/src/dm_pkg.sv                      \
               corev_apu/tb/ariane_axi_soc_pkg.sv
 
-ifeq ($(BOARD), nexys4ddr)
+# ifeq ($(BOARD), nexys4ddr)
 	ariane_pkg += corev_apu/riscv-dbg/src/uart/uart_pkg.sv
-endif
+# endif
 
 ariane_pkg := $(addprefix $(root-dir), $(ariane_pkg))
 
@@ -116,6 +116,7 @@ test_pkg := $(wildcard tb/test/*/*sequence_pkg.sv*) \
 
 # DPI
 dpi := $(patsubst corev_apu/tb/dpi/%.cc, ${dpi-library}/%.o, $(wildcard corev_apu/tb/dpi/*.cc))
+dpi += $(patsubst corev_apu/tb/sc-dpi/src/%.cpp, ${dpi-library}/%.o, $(wildcard corev_apu/tb/sc-dpi/src/*.cpp))
 
 # filter spike stuff if tandem is not activated
 ifndef spike-tandem
@@ -128,13 +129,14 @@ ifndef DROMAJO
 endif
 
 dpi_hdr := $(wildcard corev_apu/tb/dpi/*.h)
+dpi_hdr += $(wildcard corev_apu/tb/sc-dpi/src/*.hpp)
 dpi_hdr := $(addprefix $(root-dir), $(dpi_hdr))
 CFLAGS := -I$(QUESTASIM_HOME)/include         \
           -I$(VCS_HOME)/include \
           -I$(RISCV)/include                  \
           -I$(SPIKE_ROOT)/include             \
           $(if $(DROMAJO), -I../corev_apu/tb/dromajo/src,) \
-          -std=c++11 -I../corev_apu/tb/dpi -O3
+          -std=c++11 -I../corev_apu/tb/dpi -I ../tb/sc-dpi/src -O3
 
 ifdef XCELIUM_HOME
 CFLAGS += -I$(XCELIUM_HOME)/tools/include
@@ -204,9 +206,10 @@ src :=  corev_apu/tb/axi_adapter.sv                                             
         corev_apu/tb/rvfi_tracer.sv                                                  \
         corev_apu/tb/common/uart.sv                                                  \
         corev_apu/tb/common/SimDTM.sv                                                \
+        corev_apu/tb/sc-dpi/src/SimUART.sv                                           \
         corev_apu/tb/common/SimJTAG.sv
 
-ifeq ($(BOARD), nexys4ddr)
+# ifeq ($(BOARD), nexys4ddr)
 	src += corev_apu/riscv-dbg/src/uart/interface/uart_rx.sv      \
            corev_apu/riscv-dbg/src/uart/interface/uart_tx.sv      \
            corev_apu/riscv-dbg/src/uart/interface/fifo.sv         \
@@ -218,7 +221,7 @@ ifeq ($(BOARD), nexys4ddr)
 		   corev_apu/riscv-dbg/src/uart/tap_write_interconnect.sv \
 		   corev_apu/riscv-dbg/src/uart/dmi_uart.sv               \
 		   corev_apu/riscv-dbg/src/uart/dtm_uart.sv
-endif
+# endif
 
 # SV32 MMU for CV32, SV39 MMU for CV64
 ifeq ($(findstring 32, $(target)),32)
@@ -340,7 +343,7 @@ $(library):
 	$(VLIB) $(library)
 
 # compile DPIs
-$(dpi-library)/%.o: corev_apu/tb/dpi/%.cc $(dpi_hdr)
+$(dpi-library)/%.o: corev_apu/tb/dpi/%.cc corev_apu/tb/sc-dpi/src/%.cpp $(dpi_hdr)
 	mkdir -p $(dpi-library)
 	$(CXX) -shared -fPIC -std=c++0x -Bsymbolic $(CFLAGS) -c $< -o $@
 
@@ -593,6 +596,7 @@ verilate_command := $(verilator)                                                
 					--threads-dpi none 																			 \
                     --Mdir $(ver-library) -O3                                                                    \
                     --exe corev_apu/tb/ariane_tb.cpp corev_apu/tb/dpi/SimDTM.cc corev_apu/tb/dpi/SimJTAG.cc      \
+                    corev_apu/tb/sc-dpi/src/SimUART.cpp      \
                     corev_apu/tb/dpi/remote_bitbang.cc corev_apu/tb/dpi/msim_helper.cc $(if $(DROMAJO), corev_apu/tb/dpi/dromajo_cosim_dpi.cc,)
 
 dromajo:

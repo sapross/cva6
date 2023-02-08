@@ -506,6 +506,7 @@ dm_top #(
     .dmi_resp_o       ( debug_resp        )
 );
 `ifdef NEXYS4DDR
+  assign led[4] = debug_req_irq;
   assign led[5] = dmactive;
   assign led[6] = debug_req_valid;
   assign led[7] = debug_resp_ready;
@@ -826,7 +827,7 @@ ariane #(
     .ArianeCfg ( ariane_soc::ArianeSocCfg )
 ) i_ariane (
     .clk_i        ( clk                 ),
-    .rst_ni       ( ndmreset_n          ),
+    .rst_ni       ( ndmreset_n & sw[0]  ),
     .boot_addr_i  ( ariane_soc::ROMBase ), // start fetching from ROM
     .hart_id_i    ( '0                  ),
     .irq_i        ( irq                 ),

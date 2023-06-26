@@ -11,11 +11,15 @@ create_ip -name clk_wiz -vendor xilinx.com -library ip -module_name $ipName
 
 if {$board == "nexys4ddr"} {
     set sys_clk_freq 25
+    set prim_clk_freq 100
+    set sd_clk_freq 200
 } else {
     set sys_clk_freq 50
+    set prim_clk_freq 200
+    set sd_clk_freq 50
 }
 
-set_property -dict [list CONFIG.PRIM_IN_FREQ {200.000} \
+set_property -dict [list CONFIG.PRIM_IN_FREQ $prim_clk_freq \
                         CONFIG.NUM_OUT_CLKS {4} \
                         CONFIG.CLKOUT2_USED {true} \
                         CONFIG.CLKOUT3_USED {true} \
@@ -24,7 +28,7 @@ set_property -dict [list CONFIG.PRIM_IN_FREQ {200.000} \
                         CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {125} \
                         CONFIG.CLKOUT3_REQUESTED_OUT_FREQ {125} \
                         CONFIG.CLKOUT3_REQUESTED_PHASE {90.000} \
-                        CONFIG.CLKOUT4_REQUESTED_OUT_FREQ {50} \
+                        CONFIG.CLKOUT4_REQUESTED_OUT_FREQ $sd_clk_freq \
                         CONFIG.CLKIN1_JITTER_PS {50.0} \
                        ] [get_ips $ipName]
 
